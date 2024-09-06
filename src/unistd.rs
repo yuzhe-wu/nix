@@ -3,7 +3,7 @@
 use crate::errno::Errno;
 
 #[cfg(any(
-    all(feature = "fs", not(target_os = "redox")),
+    all(feature = "fs", not(any(target_os = "redox", target_os = "nto"))),
     all(feature = "process", linux_android)
 ))]
 use crate::fcntl::at_rawfd;
@@ -23,7 +23,7 @@ use crate::fcntl::AtFlags;
     target_os = "redox",
 ))]
 use crate::fcntl::OFlag;
-#[cfg(all(feature = "fs", bsd))]
+#[cfg(all(feature = "fs", bsd, not(target_os = "nto")))]
 use crate::sys::stat::FileFlag;
 #[cfg(feature = "fs")]
 use crate::sys::stat::Mode;
@@ -577,7 +577,8 @@ pub fn mkfifo<P: ?Sized + NixPath>(path: &P, mode: Mode) -> Result<()> {
     apple_targets,
     target_os = "haiku",
     target_os = "android",
-    target_os = "redox"
+    target_os = "redox",
+    target_os = "nto"
 )))]
 pub fn mkfifoat<P: ?Sized + NixPath>(
     dirfd: Option<RawFd>,
@@ -1008,7 +1009,7 @@ feature! {
 /// On some systems, the host name is limited to as few as 64 bytes.  An error
 /// will be returned if the name is not valid or the current process does not
 /// have permissions to update the host name.
-#[cfg(not(target_os = "redox"))]
+#[cfg(not(any(target_os = "redox", target_os = "nto")))]
 pub fn sethostname<S: AsRef<OsStr>>(name: S) -> Result<()> {
     // Handle some differences in type of the len arg across platforms.
     cfg_if! {
@@ -1295,7 +1296,7 @@ impl LinkatFlags {
 ///
 /// # References
 /// See also [linkat(2)](https://pubs.opengroup.org/onlinepubs/9699919799/functions/linkat.html)
-#[cfg(not(target_os = "redox"))] // RedoxFS does not support symlinks yet
+#[cfg(not(any(target_os = "redox", target_os = "nto")))] // RedoxFS does not support symlinks yet
 pub fn linkat<P: ?Sized + NixPath>(
     olddirfd: Option<RawFd>,
     oldpath: &P,
@@ -1345,7 +1346,7 @@ pub enum UnlinkatFlags {
 ///
 /// # References
 /// See also [unlinkat(2)](https://pubs.opengroup.org/onlinepubs/9699919799/functions/unlinkat.html)
-#[cfg(not(target_os = "redox"))]
+#[cfg(not(any(target_os = "redox", target_os = "nto")))]
 pub fn unlinkat<P: ?Sized + NixPath>(
     dirfd: Option<RawFd>,
     path: &P,
@@ -3158,7 +3159,7 @@ pub fn access<P: ?Sized + NixPath>(path: &P, amode: AccessFlags) -> Result<()> {
 ///
 /// [faccessat(2)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/faccessat.html)
 // redox: does not appear to support the *at family of syscalls.
-#[cfg(not(target_os = "redox"))]
+#[cfg(not(any(target_os = "redox", target_os = "nto")))]
 pub fn faccessat<P: ?Sized + NixPath>(
     dirfd: Option<RawFd>,
     path: &P,
@@ -3714,7 +3715,7 @@ feature! {
 /// Set the file flags.
 ///
 /// See also [chflags(2)](https://www.freebsd.org/cgi/man.cgi?query=chflags&sektion=2)
-#[cfg(bsd)]
+#[cfg(all(bsd, not(target_os = "nto")))]
 pub fn chflags<P: ?Sized + NixPath>(path: &P, flags: FileFlag) -> Result<()> {
     let res = path.with_nix_path(|cstr| unsafe {
         libc::chflags(cstr.as_ptr(), flags.bits())

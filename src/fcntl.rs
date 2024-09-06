@@ -75,10 +75,13 @@ libc_bitflags! {
     }
 }
 
-#[cfg(any(
-    feature = "fs",
-    feature = "term",
-    all(feature = "fanotify", target_os = "linux")
+#[cfg(all(
+    not(target_os = "nto"),
+    any(
+        feature = "fs",
+        feature = "term",
+        all(feature = "fanotify", target_os = "linux")
+    )
 ))]
 libc_bitflags!(
     /// Configuration options for opened files.
@@ -201,7 +204,7 @@ libc_bitflags!(
 
 /// Computes the raw fd consumed by a function of the form `*at`.
 #[cfg(any(
-    all(feature = "fs", not(target_os = "redox")),
+    all(feature = "fs", not(any(target_os = "redox", target_os = "nto"))),
     all(feature = "process", linux_android),
     all(feature = "fanotify", target_os = "linux")
 ))]
@@ -218,6 +221,7 @@ feature! {
 /// [`open`](https://pubs.opengroup.org/onlinepubs/9699919799/functions/open.html)
 // The conversion is not identical on all operating systems.
 #[allow(clippy::useless_conversion)]
+#[cfg(not(any(target_os = "redox", target_os = "nto")))]
 pub fn open<P: ?Sized + NixPath>(
     path: &P,
     oflag: OFlag,
@@ -240,7 +244,7 @@ pub fn open<P: ?Sized + NixPath>(
 /// [`openat`](https://pubs.opengroup.org/onlinepubs/9699919799/functions/openat.html)
 // The conversion is not identical on all operating systems.
 #[allow(clippy::useless_conversion)]
-#[cfg(not(target_os = "redox"))]
+#[cfg(not(any(target_os = "redox", target_os = "nto")))]
 pub fn openat<P: ?Sized + NixPath>(
     dirfd: Option<RawFd>,
     path: &P,
@@ -374,7 +378,7 @@ cfg_if::cfg_if! {
 ///
 /// # See Also
 /// [`renameat`](https://pubs.opengroup.org/onlinepubs/9699919799/functions/rename.html)
-#[cfg(not(target_os = "redox"))]
+#[cfg(not(any(target_os = "redox", target_os = "nto")))]
 pub fn renameat<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
     old_dirfd: Option<RawFd>,
     old_path: &P1,
@@ -468,6 +472,7 @@ fn readlink_maybe_at<P: ?Sized + NixPath>(
             ),
             // On Neutrino QNX, libc::readlinkat returns an `int` instead of ssize_t
             #[cfg(target_os = "nto")]
+            Some(_) => unreachable!(),
             Some(dirfd) => libc::readlinkat(
                 dirfd,
                 cstr.as_ptr(),
@@ -478,7 +483,7 @@ fn readlink_maybe_at<P: ?Sized + NixPath>(
                 cstr.as_ptr(),
                 v.as_mut_ptr().cast(),
                 v.capacity() as size_t,
-            ),
+            ) as libc::ssize_t,
         }
     })
 }
@@ -507,7 +512,7 @@ fn inner_readlink<P: ?Sized + NixPath>(
     // Let's try to ask lstat how many bytes to allocate.
     let mut try_size = {
         let reported_size = match dirfd {
-            #[cfg(target_os = "redox")]
+            #[cfg(any(target_os = "redox", target_os = "nto"))]
             Some(_) => unreachable!(),
             #[cfg(any(linux_android, target_os = "freebsd", target_os = "hurd"))]
             Some(dirfd) => {
@@ -526,7 +531,8 @@ fn inner_readlink<P: ?Sized + NixPath>(
                 linux_android,
                 target_os = "redox",
                 target_os = "freebsd",
-                target_os = "hurd"
+                target_os = "hurd",
+                target_os = "nto"
             )))]
             Some(dirfd) => super::sys::stat::fstatat(
                 Some(dirfd),
@@ -585,7 +591,7 @@ pub fn readlink<P: ?Sized + NixPath>(path: &P) -> Result<OsString> {
 ///
 /// # See Also
 /// * [`readlink`](https://pubs.opengroup.org/onlinepubs/9699919799/functions/readlink.html)
-#[cfg(not(target_os = "redox"))]
+#[cfg(not(any(target_os = "redox", target_os = "nto")))]
 pub fn readlinkat<P: ?Sized + NixPath>(
     dirfd: Option<RawFd>,
     path: &P,
@@ -645,6 +651,7 @@ pub enum FcntlArg<'a> {
     /// Get descriptor status flags
     F_GETFL,
     /// Set descriptor status flags
+    #[cfg(not(target_os = "nto"))]
     F_SETFL(OFlag), // O_NONBLOCK
     /// Set or clear a file segment lock
     F_SETLK(&'a libc::flock),
@@ -739,6 +746,7 @@ pub fn fcntl(fd: RawFd, arg: FcntlArg) -> Result<c_int> {
             F_GETFD => libc::fcntl(fd, libc::F_GETFD),
             F_SETFD(flag) => libc::fcntl(fd, libc::F_SETFD, flag.bits()),
             F_GETFL => libc::fcntl(fd, libc::F_GETFL),
+            #[cfg(not(target_os = "nto"))]
             F_SETFL(flag) => libc::fcntl(fd, libc::F_SETFL, flag.bits()),
             #[cfg(not(target_os = "redox"))]
             F_SETLK(flock) => libc::fcntl(fd, libc::F_SETLK, flock),

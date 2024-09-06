@@ -5,7 +5,7 @@ pub use libc::c_ulong;
 pub use libc::stat as FileStat;
 pub use libc::{dev_t, mode_t};
 
-#[cfg(not(target_os = "redox"))]
+#[cfg(not(any(target_os = "redox", target_os = "nto")))]
 use crate::fcntl::{at_rawfd, AtFlags};
 use crate::sys::time::{TimeSpec, TimeVal};
 use crate::{errno::Errno, NixPath, Result};
@@ -66,7 +66,7 @@ pub type type_of_file_flag = c_uint;
 #[cfg(any(freebsdlike, target_os = "netbsd"))]
 pub type type_of_file_flag = c_ulong;
 
-#[cfg(bsd)]
+#[cfg(all(bsd, not(target_os = "nto")))]
 libc_bitflags! {
     /// File flags.
     pub struct FileFlag: type_of_file_flag {
@@ -167,7 +167,7 @@ pub fn mknod<P: ?Sized + NixPath>(
 }
 
 /// Create a special or ordinary file, relative to a given directory.
-#[cfg(not(any(apple_targets, target_os = "redox", target_os = "haiku")))]
+#[cfg(not(any(apple_targets, target_os = "redox", target_os = "haiku", target_os = "nto")))]
 pub fn mknodat<P: ?Sized + NixPath>(
     dirfd: Option<RawFd>,
     path: &P,
@@ -242,7 +242,7 @@ pub fn fstat(fd: RawFd) -> Result<FileStat> {
     Ok(unsafe { dst.assume_init() })
 }
 
-#[cfg(not(target_os = "redox"))]
+#[cfg(not(any(target_os = "redox", target_os = "nto")))]
 pub fn fstatat<P: ?Sized + NixPath>(
     dirfd: Option<RawFd>,
     pathname: &P,
@@ -298,7 +298,7 @@ pub enum FchmodatFlags {
 /// # References
 ///
 /// [fchmodat(2)](https://pubs.opengroup.org/onlinepubs/9699919799/functions/fchmodat.html).
-#[cfg(not(target_os = "redox"))]
+#[cfg(not(any(target_os = "redox", target_os = "nto")))]
 pub fn fchmodat<P: ?Sized + NixPath>(
     dirfd: Option<RawFd>,
     path: &P,
@@ -417,7 +417,7 @@ pub enum UtimensatFlags {
 /// # References
 ///
 /// [utimensat(2)](https://pubs.opengroup.org/onlinepubs/9699919799/functions/utimens.html).
-#[cfg(not(target_os = "redox"))]
+#[cfg(not(any(target_os = "redox", target_os = "nto")))]
 pub fn utimensat<P: ?Sized + NixPath>(
     dirfd: Option<RawFd>,
     path: &P,
@@ -442,7 +442,7 @@ pub fn utimensat<P: ?Sized + NixPath>(
     Errno::result(res).map(drop)
 }
 
-#[cfg(not(target_os = "redox"))]
+#[cfg(not(any(target_os = "redox", target_os = "nto")))]
 pub fn mkdirat<P: ?Sized + NixPath>(
     fd: Option<RawFd>,
     path: &P,
